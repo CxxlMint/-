@@ -33,4 +33,4 @@ for event in longpoll.listen():
             elif request.split()[0] == "command":
                 write_msg(event.user_id, commander.do(request[8::]))
             else:
-                write_msg(event.user_id, "Не поняла вашего ответа... Для вызова списка команд напишите: !команды")
+                write_msg(event.user_id, "Не поняла вашего ответа...")

@@ -1,5 +1,5 @@
 import bs4 as bs4
-import requests, random
+import requests
 
 
 class VkBot:
@@ -7,7 +7,7 @@ class VkBot:
         print("\nСоздан объект бота!")
         self._USER_ID = user_id
         self._USERNAME = self._get_user_name_from_vk_id(user_id)
-        self._COMMANDS = ["ПРИВЕТ", "!ПОГОДА", "!ВРЕМЯ", "ПОКА", "!КОМАНДЫ", "!ЧИСЛО", '!МОНЕТКА']
+        self._COMMANDS = ["ПРИВЕТ", "ПОГОДА", "ВРЕМЯ", "ПОКА"]
 
     def _get_user_name_from_vk_id(self, user_id):
         request = requests.get("https://vk.com/id" + str(user_id))
@@ -18,7 +18,7 @@ class VkBot:
     def new_message(self, message):
         # Привет
         if message.upper() == self._COMMANDS[0]:
-            return f"Привет-привет, {self._USERNAME}! " + str(random.choice(['&#128521;', '&#128524;', '&#9995; &#128519;']))
+            return f"Привет-привет, {self._USERNAME}!"
         # Погода
         elif message.upper() == self._COMMANDS[1]:
             return self._get_weather()
@@ -28,26 +28,8 @@ class VkBot:
         # Пока
         elif message.upper() == self._COMMANDS[3]:
             return f"Пока-пока, {self._USERNAME}!"
-        elif message.upper() == self._COMMANDS[4]:
-            return f"Список команд:\n" \
-                f"!Погода - для просмотра погоды &#9728;\n" \
-                f"!Время - для просмотра времени &#127763;\n" \
-                f"!Число - генерация рандомного числа &#128290;\n" \
-                f"!Монетка - подбросить монетку (орел/решка) &#127922;"
-        elif message.upper()[0:6] == self._COMMANDS[5]:
-            if len(message.split(' ')) != 3:
-                return f"Неверный синтаксис, надо вводить так:\n" \
-                    f"!Число [от] [до]"
-            else:
-                if int(message.split(' ')[1]) > int(message.split(' ')[2]):
-                    return f"Первое число больше второго &#128530;"
-                else:
-                    return f"Ваше число: " + str(random.randint(int(message.split(' ')[1]), int(message.split(' ')[2])))
-        elif message.upper() == self._COMMANDS[6]:
-            return f"Иии выпадает! " + random.choice(['Орёл', 'Решка']) + ' ' + str(random.choice(['&#127773;', '&#128516;', '&#128527;', '&#128517;']))
         else:
-            return "Не понимаю о чем вы... &#128530;\n Для списка команд напишите:\n" \
-                   "!команды"
+            return "Не понимаю о чем вы..."
 
     def _get_time(self):
         request = requests.get("https://my-calend.ru/date-and-time-today")

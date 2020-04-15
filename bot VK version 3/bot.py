@@ -69,8 +69,6 @@ def check_message(cur_event):
         write_msg(user_id, bot.new_message(message))
         set_user_state(user_id, "registration")
     else:
-        if get_user_state(user_id) == 'registration':
-            pass
         write_msg(user_id, bot.new_message(message))
 
 

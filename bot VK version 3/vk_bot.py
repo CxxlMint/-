@@ -1,13 +1,12 @@
 import bs4 as bs4
 import requests, random
 
-
 class VkBot:
     def __init__(self, user_id):
         print("\nСоздан объект бота!")
         self._USER_ID = user_id
         self._USERNAME = self._get_user_name_from_vk_id(user_id)
-        self._COMMANDS = ["ПРИВЕТ", "!ПОГОДА", "!ВРЕМЯ", "ПОКА", "!КОМАНДЫ", "!ЧИСЛО", '!МОНЕТКА', 'РЕГИСТРАЦИЯ_КИЛЛЕР']
+        self._COMMANDS = ["ПРИВЕТ", "!ПОГОДА", "!ВРЕМЯ", "ПОКА", "!КОМАНДЫ", "!ЧИСЛО", '!МОНЕТКА', 'РЕГИСТРАЦИЯ КИЛЛЕР']
 
     def _get_user_name_from_vk_id(self, user_id):
         request = requests.get("https://vk.com/id" + str(user_id))

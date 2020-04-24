@@ -1,7 +1,6 @@
 # 2453f743a9720b082acd93fbecb88e9fde7a4d737fbd4968fb89d00f54d305ad651ecfafc7f90b0d9f3ae
 
 from vk_bot import VkBot
-import random
 import vk_api
 import sqlite3
 from vk_api.longpoll import VkLongPoll, VkEventType
@@ -9,6 +8,7 @@ from commander.commander import Commander
 import random
 import config
 import string
+
 # подклчение к базе данных
 conn = sqlite3.connect(config.sql_baza)
 c = conn.cursor()
@@ -36,6 +36,93 @@ def register_new_user(user_id):
     conn.commit()
     cmd = "INSERT INTO user_info(user_id, user_password, is_dead) VALUES (%d, '%s', 0)" % (user_id,
                                                                                            generate_user_password())
+    c.execute(cmd)
+    conn.commit()
+    cmd = "INSERT INTO game_adventure(user_id, user_save, user_progress, user_skill_1, user_skill_2, user_skill_3, user_in_game) VALUES (%d, 0, 0, 0, 0, 0, 0)" % user_id
+    c.execute(cmd)
+    conn.commit()
+
+
+# показывает прогресс игрока в приключении
+def get_user_in_game(user_id):
+    cmd = "SELECT user_in_game FROM game_adventure WHERE user_id=%d" % user_id
+    c.execute(cmd)
+    return c.fetchone()
+
+
+# устанавливает прогресс игрока в приключении
+def set_user_in_game(user_id, in_game):
+    cmd = "UPDATE game_adventure SET user_in_game = '%s' WHERE user_id=%d" % (in_game, user_id)
+    c.execute(cmd)
+    conn.commit()
+
+
+# показывает прогресс игрока в приключении
+def get_user_progress(user_id):
+    cmd = "SELECT user_progress FROM game_adventure WHERE user_id=%d" % user_id
+    c.execute(cmd)
+    return c.fetchone()
+
+
+# устанавливает прогресс игрока в приключении
+def set_user_progress(user_id, progress):
+    cmd = "UPDATE game_adventure SET user_progress = '%s' WHERE user_id=%d" % (progress, user_id)
+    c.execute(cmd)
+    conn.commit()
+
+
+# показывает силу игрока в приключении
+def get_user_skill_1(user_id):
+    cmd = "SELECT user_skill_1 FROM game_adventure WHERE user_id=%d" % user_id
+    c.execute(cmd)
+    return c.fetchone()
+
+
+# устанавливает силу игрока в приключении
+def set_user_skill_1(user_id, skill_1):
+    cmd = "UPDATE game_adventure SET user_skill_1 = '%s' WHERE user_id=%d" % (skill_1, user_id)
+    c.execute(cmd)
+    conn.commit()
+
+
+# показывает красноречие игрока в приключении
+def get_user_skill_2(user_id):
+    cmd = "SELECT user_skill_2 FROM game_adventure WHERE user_id=%d" % user_id
+    c.execute(cmd)
+    return c.fetchone()
+
+
+# устанавливает красноречие игрока в приключении
+def set_user_skill_2(user_id, skill_2):
+    cmd = "UPDATE game_adventure SET user_skill_2 = '%s' WHERE user_id=%d" % (skill_2, user_id)
+    c.execute(cmd)
+    conn.commit()
+
+
+# показывает силу магии игрока в приключении
+def get_user_skill_3(user_id):
+    cmd = "SELECT user_skill_3 FROM game_adventure WHERE user_id=%d" % user_id
+    c.execute(cmd)
+    return c.fetchone()
+
+
+# устанавливает силу магии игрока в приключении
+def set_user_skill_3(user_id, skill_3):
+    cmd = "UPDATE game_adventure SET user_skill_3 = '%s' WHERE user_id=%d" % (skill_3, user_id)
+    c.execute(cmd)
+    conn.commit()
+
+
+# показывает рассу игрока в приключении
+def get_user_race(user_id):
+    cmd = "SELECT user_race FROM game_adventure WHERE user_id=%d" % user_id
+    c.execute(cmd)
+    return c.fetchone()
+
+
+# устанавливает рассу игрока в приключении
+def set_user_race(user_id, race):
+    cmd = "UPDATE game_adventure SET user_race = '%s' WHERE user_id=%d" % (race, user_id)
     c.execute(cmd)
     conn.commit()
 
@@ -132,13 +219,54 @@ def check_message(cur_event):
     user_id = cur_event.user_id
     # if cur_event.text[0] == "/":
     # write_msg(event.user_id, commander.do(message[1::]))
-    if get_user_state(user_id) is None:
+    if message.lower() == "сначала игра приключение":
+        set_user_progress(user_id, "0")
+    if message.lower() == "игра приключение":
+        set_user_in_game(user_id, "1")
+        write_msg(user_id, bot.new_message(message))
+        if int(get_user_progress(user_id)[0]) == 0:
+            write_msg(user_id, "выберите рассу из предложенного списка: Человек, Эльф, Орк")
+    elif int(get_user_in_game(user_id)[0]) == 1:
+        if message.lower() == "выход игра приключение":
+            set_user_in_game(user_id, "0")
+            write_msg(user_id, "Возвращайтесь скорее! Вас ждут приключения!")
+        elif int(get_user_progress(user_id)[0]) == 0:
+            if message.lower() == "человек":
+                set_user_race(user_id, "человек")
+                set_user_skill_1(user_id, "2")
+                set_user_skill_2(user_id, "2")
+                set_user_skill_3(user_id, "2")
+                set_user_progress(user_id, "1")
+            elif message.lower() == "эльф":
+                set_user_race(user_id, "эльф")
+                set_user_skill_1(user_id, "1")
+                set_user_skill_2(user_id, "2")
+                set_user_skill_3(user_id, "3")
+                set_user_progress(user_id, "1")
+            elif message.lower() == "орк":
+                set_user_race(user_id, "орк")
+                set_user_skill_1(user_id, "3")
+                set_user_skill_2(user_id, "2")
+                set_user_skill_3(user_id, "1")
+                set_user_progress(user_id, "1")
+            else:
+                write_msg(user_id, "Я не понял ваши слова, выберите рассу из предложенного списка: Человек, Эльф, Орк")
+        elif int(get_user_progress(user_id)[0]) == 1:
+            write_msg(user_id, "отлично, ваша расса теперь " + str(get_user_race(user_id)[0])
+                      + ".Ваша сила, красноречие и сила магии равны: " + str(get_user_skill_1(user_id)[0])
+                      + ", " + str(get_user_skill_2(user_id)[0]) + ", " + str(get_user_skill_3(user_id)[0])
+                      + ". Если вы захотите всё изменить напишитe: сначала игра приключение")
+            write_msg(user_id, "Да начнутся приключения!")
+            set_user_progress(user_id, "2")
+        elif int(get_user_progress(user_id)[0]) == 2:
+            write_msg(user_id, "Ваши приключения скоро начнутся, ожидайте.")
+    elif get_user_state(user_id) is None:
         write_msg(user_id, bot.new_message(message))
     elif message.lower() == "регистрация киллер":
         if get_user_state(user_id)[0] == "registration_over":
             write_msg(user_id, "Вы уже зарегестрированы на игру, ожидайте начало игры &#9851;" +
                       "Ваша комната &#128709; : " + get_user_room(user_id) + '\n'
-                      " &#8252; Если вы хотите изменить данные, напишите команду: перерегистрация киллер &#8252;")
+                                                                             " &#8252; Если вы хотите изменить данные, напишите команду: перерегистрация киллер &#8252;")
         else:
             write_msg(user_id, bot.new_message(message))
             set_user_state(user_id, "registration_image")
@@ -189,12 +317,12 @@ for event in longpoll.listen():
     if event.type == VkEventType.MESSAGE_NEW and event.to_me:
         print(f'Новое сообщение от {event.user_id}', end='')
 
+        if get_user(event.user_id) is None:
+            register_new_user(event.user_id)
+
         bot = VkBot(event.user_id)
 
         check_message(event)
 
         print('Текст: ', event.text)
         print("-------------------")
-
-        if get_user(event.user_id) is None:
-            register_new_user(event.user_id)

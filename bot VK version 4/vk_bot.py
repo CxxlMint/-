@@ -9,7 +9,7 @@ class VkBot:
         self._USER_ID = user_id
         self._USERNAME = self._get_user_name_from_vk_id(user_id)
         self._COMMANDS = ["ПРИВЕТ", "!ПОГОДА", "!ВРЕМЯ", "ПОКА", "!КОМАНДЫ", "!ЧИСЛО", '!МОНЕТКА', 'РЕГИСТРАЦИЯ КИЛЛЕР',
-                          '!ЦИТАТА', "ИГРА ПРИКЛЮЧЕНИЕ"]
+                          '!ЦИТАТА', "ИГРА ПРИКЛЮЧЕНИЕ", "АУФ"]
 
     def _get_user_name_from_vk_id(self, user_id):
         request = requests.get("https://vk.com/id" + str(user_id))
@@ -38,7 +38,9 @@ class VkBot:
                    f"!Время - для просмотра времени &#127763;\n" \
                    f"!Число [от]   [до] - генерация рандомного числа &#128290;\n" \
                    f"!Монетка - подбросить монетку (орел/решка) &#127922;\n" \
-                   f"!Цитата - мудрая цитата ☝"
+                   f"!Цитата - мудрая цитата ☝;\n" \
+                   f"Регистрация киллер - регистрация на игру;\n" \
+                   f"Игра приключение - начать приключение в фентезийном мире."
         elif message.upper()[0:6] == self._COMMANDS[5]:
             if len(message.split(' ')) != 3:
                 return f"Неверный синтаксис, надо вводить так:\n" \
@@ -57,11 +59,13 @@ class VkBot:
         elif message.upper() == self._COMMANDS[8]:
             with open('citata.txt', 'r') as file:
                 line = file.readlines()
-                return line[random.randint(0, 9)].encode("utf-8")
+                return line[random.randint(0, 12)].encode("utf-8")
         elif message.upper() == self._COMMANDS[9]:
             return "Вы начали игру {название еще не придкмал}, для выхода из игры напишите: выход игра приключение," \
                    " для сохранения игры напишите: сохранить игра приключение, для загрузки сохранения напишите:" \
                    " загрузить игра приключение."
+        elif message.upper() == self._COMMANDS[10]:
+            return "Выкатывает со дворов!"
         else:
             return "Не понимаю о чем вы... &#128530;\n Для списка команд напишите:\n" \
                    "!команды"

@@ -29,6 +29,7 @@ def generate_user_password():
     return password
 
 
+# выдает пароль пользователся
 def get_user_password(user_id):
     cmd = "SELECT user_password FROM user_info WHERE user_id=%d" % user_id
     c.execute(cmd)
@@ -40,12 +41,26 @@ def register_new_user(user_id):
     cmd = "INSERT INTO users(user_id, state) VALUES (%d, '')" % user_id
     c.execute(cmd)
     conn.commit()
-    cmd = "INSERT INTO user_info(user_id, user_password, is_dead) VALUES (%d, '%s', 0)" % (user_id,
-                                                                                           generate_user_password())
+    cmd = "INSERT INTO user_info(user_id, user_password, is_dead, wait_kill) VALUES (%d, '%s', 0, 0)" % (user_id,
+                                                                                                         generate_user_password())
     c.execute(cmd)
     conn.commit()
     cmd = "INSERT INTO game_adventure(user_id, user_save, user_progress, user_skill_1, user_skill_2, user_skill_3," \
           " user_in_game) VALUES (%d, 0, 0, 0, 0, 0, 0)" % user_id
+    c.execute(cmd)
+    conn.commit()
+
+
+# показывает ожидание убийства
+def get_user_wait_kill(user_id):
+    cmd = "SELECT wait_kill FROM user_info WHERE user_id=%d" % user_id
+    c.execute(cmd)
+    return c.fetchone()[0]
+
+
+# устанавливает ожидание убийства
+def set_user_wait_kill(user_id, wait):
+    cmd = "UPDATE user_info SET wait_kill = %d WHERE user_id=%d" % (wait, user_id)
     c.execute(cmd)
     conn.commit()
 
@@ -267,24 +282,47 @@ def send_message_about_jertva_to_room(room):
     for item in result:
         image = generate_message_about_jertva(item[1])
         message = "Ваша цель:"
-        vk.method('messages.send', {'user_id': item[0], 'message': message, 'attachment': image, 'random_id': random.randint(0, 2048)})
+        vk.method('messages.send',
+                  {'user_id': item[0], 'message': message, 'attachment': image, 'random_id': random.randint(0, 2048)})
 
 
 # генератор жертвы
 def generate_jertva(room):
+    # cmd = "SELECT user_id FROM user_info WHERE user_room='%s'" % room
+    # c.execute(cmd)
+    # result = c.fetchall()
+    # for item in result:
+    #    target = item[0]
+    #    target_of_target = item[0]
+    #   while target == item[0] or target_of_target == item[0]:
+    #       new_target = result[random.randint(0, len(result) - 1)][0]
+    #       target = new_target
+    #       cmd = "SELECT target_id FROM user_info WHERE user_id='%d'" % target
+    #       c.execute(cmd)
+    #       target_of_target = c.fetchone()[0]
+    #   cmd = "UPDATE user_info SET target_id=%d WHERE user_id=%d" % (target, item[0])
+    #    c.execute(cmd)
+    #    conn.commit()
+
     cmd = "SELECT user_id FROM user_info WHERE user_room='%s'" % room
     c.execute(cmd)
     result = c.fetchall()
+    jertva = []
+    killers = []
+    target = ''
+    user = ''
     for item in result:
-        if result.index(item) != len(result) - 1:
-            jertva = result[result.index(item) + 1]
-            cmd = "UPDATE user_info SET target_id=%d WHERE user_id=%d" % (jertva[0], item[0])
-            c.execute(cmd)
-            conn.commit()
-        else:
-            cmd = "UPDATE user_info SET target_id=%d WHERE user_id=%d" % (result[0][0], item[0])
-            c.execute(cmd)
-            conn.commit()
+        jertva.append(item[0])
+        killers.append(item[0])
+    for b in range(len(jertva)):
+        i = random.randint(0, len(killers) - 1)
+        if str(jertva[b]) != str(killers[i]):
+            user = str(jertva[b])
+            target = str(killers[i])
+            killers.pop(i)
+        cmd = "UPDATE user_info SET target_id='%s' WHERE user_id='%s'" % (str(target), str(user))
+        c.execute(cmd)
+        conn.commit()
 
 
 # проверка убийства жертвы
@@ -327,6 +365,14 @@ def generate_message_about_jertva(jertva_id):
     c.execute(cmd)
     result = c.fetchone()
     return result[0]
+
+
+# выдает количество выживших игроков
+def check_alive(room):
+    cmd = "SELECT * FROM user_info WHERE is_dead = 0 AND user_room = '%s'" % room
+    c.execute(cmd)
+    result = c.fetchall()
+    return len(result)
 
 
 # написание сообщения
@@ -421,7 +467,9 @@ def check_message(cur_event):
                 a = message.split(' ')
                 set_game_stage(1, a[2])
                 send_message_to_room("Внимание, игра началась!", a[2])
-                send_message_to_room("Для того, чтобы убить жертву, вам нужно написать мне её пароль. Чтобы узнать свой пароль напишите: мой пароль.")
+                send_message_to_room(
+                    "Для того, чтобы убить жертву, вам нужно написать мне её пароль. Чтобы узнать свой пароль напишите: мой пароль.",
+                    a[2])
                 generate_jertva(a[2])
                 send_message_about_jertva_to_room(a[2])
             elif cur_event.text.lower() == 'мой пароль':
@@ -437,8 +485,11 @@ def check_message(cur_event):
                 set_user_state(user_id, "registration_room")
                 write_msg(user_id, "Укажите комнату игры (пример: комната-01)")
         elif get_user_state(user_id)[0] == "registration_room":
-            print(str(message), get_rooms())
-            if str(message) in get_rooms() is True:
+            vhod = 0
+            for elem in get_rooms():
+                if str(message) == str(elem):
+                    vhod = 1
+            if vhod == 1:
                 if get_game_stage(message) != 0:
                     write_msg(user_id, "В этой комнате уже идет игра, выберите другую комнату или создайте новую.")
                 else:
@@ -464,35 +515,54 @@ def check_message_on_stage_one(cur_event):
     user_id = cur_event.user_id
     # if cur_event.text[0] == "/":
     # write_msg(event.user_id, commander.do(message[1::]))
-    if get_user_state(user_id) is None:
-        write_msg(user_id, bot.new_message(message))
     if cur_event.text == 'смена стадии ' + str(get_user_room(user_id)) + " " + str(
             get_password_room(get_user_room(user_id))):
-        a = message.split(' ')
-        cur_stage = get_game_stage(a[2])
-        set_game_stage(int(cur_stage) + 1, a[2])
-        print(cur_stage + 1)
-        if cur_stage + 1 == 1:
-            send_message_to_room("Внимание, игра началась!", a[2])
-            write_msg(user_id,
-                      "Для того, чтобы убить жертву, вам нужно написать мне её пароль. Ваш пароль: " + get_user_password(
-                          user_id) + ".")
-        elif cur_stage + 1 == 2:
-            send_message_to_room("Внимание, игра окончена, идет подсчет итогов, ожидайте!", a[2])
-        else:
-            send_message_to_room("Внимание, итог игры готов, победители: " + ".", a[2])
+        set_game_stage(2, str(get_user_room(user_id)))
+        send_message_to_room("Внимание, игра окончена, идет подсчет итогов, ожидайте!", str(get_user_room(user_id)))
+    elif cur_event.text.lower() == 'мой пароль':
+        write_msg(user_id, "Ваш пароль: " + get_user_password(user_id))
     elif cur_event.text.lower() == 'регистрация киллер':
         write_msg(user_id, "Регистрация невозможна, вы уже зарегестрированы")
     elif cur_event.text.lower() == 'перегистрация киллер':
         write_msg(user_id, "Перегистрация невозможна, вы находитесь в игре")
+    elif cur_event.text == "Убийство":
+        write_msg(user_id, "Вас понял, ожидаю пароль цели.")
+        set_user_wait_kill(user_id, 1)
+    elif cur_event.text == "Отмена убийства":
+        write_msg(user_id, "Так точно, ожидаю.")
+        set_user_wait_kill(user_id, 0)
+    elif cur_event.text == "288008":
+        print(check_alive(get_user_room(user_id)))
     else:
-        if check_kill(user_id, message):
-            new_target = change_jertva(user_id)
-            image = generate_message_about_jertva(new_target)
-            vk.method('messages.send', {'user_id': user_id,
-                                        'message': "Поздравляем, вы убили свою жертву, вот данные о следующей жертве:",
-                                        'attachment': image, 'random_id': random.randint(0, 2048)})
-        write_msg(user_id, bot.new_message(message))
+        if int(get_user_wait_kill(user_id)) == 1:
+            if check_kill(user_id, cur_event.text) is True:
+                set_user_wait_kill(user_id, 0)
+                print(check_alive(get_user_room(user_id)))
+                if check_alive(get_user_room(user_id)) != 3:
+                    new_target = change_jertva(user_id)
+                    image = generate_message_about_jertva(new_target)
+                    vk.method('messages.send', {'user_id': user_id,
+                                                'message': "Поздравляем, вы убили свою жертву, вот данные о следующей жертве:",
+                                                'attachment': image, 'random_id': random.randint(0, 2048)})
+                else:
+                    send_message_to_room("Внимание, осталось два киллера, игра окончена!", str(get_user_room(user_id)))
+                    set_game_stage(2, str(get_user_room(user_id)))
+            else:
+                write_msg(user_id, "Цель по данному паролю не распознана, ожидаю новый пароль.")
+        else:
+            write_msg(user_id, bot.new_message(message))
+
+
+# обработка сообщений во время конца игры
+def check_message_on_stage_two(cur_event):
+    message = cur_event.text
+    user_id = cur_event.user_id
+    if cur_event.text.lower() == 'регистрация киллер':
+        write_msg(user_id, "Регистрация невозможна, вы уже зарегестрированы")
+    elif cur_event.text.lower() == 'перегистрация киллер':
+        write_msg(user_id, "Перегистрация невозможна, вы находитесь в игре")
+    else:
+        write_msg(user_id, "Ожидайте конца игры, ведется подсчет итогов")
 
 
 print("Сервер запущен")
@@ -505,7 +575,21 @@ for event in longpoll.listen():
 
         bot = VkBot(event.user_id)
 
-        check_message(event)
+        if get_user_state(event.user_id)[0] is None:
+            check_message(event)
+        else:
+            if get_user_state(event.user_id)[0] == "registration_over":
+                if get_game_stage(get_user_room(event.user_id)) == 0:
+                    print('статус комнаты: 0')
+                    check_message(event)
+                elif get_game_stage(get_user_room(event.user_id)) == 1:
+                    print('статус комнаты: 1')
+                    check_message_on_stage_one(event)
+                elif get_game_stage(get_user_room(event.user_id)) == 2:
+                    print('статус комнаты: 2')
+                    check_message_on_stage_two(event)
+            else:
+                check_message(event)
 
         print('Текст: ', event.text)
         print("-------------------")

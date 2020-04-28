@@ -275,6 +275,7 @@ def send_message_to_room(message, room):
         write_msg(item[0], message)
 
 
+# создает сообщение о жертве пользователя
 def send_message_about_jertva_to_room(room):
     cmd = "SELECT user_id, target_id FROM user_info WHERE user_room='%s'" % room
     c.execute(cmd)
@@ -286,41 +287,23 @@ def send_message_about_jertva_to_room(room):
                   {'user_id': item[0], 'message': message, 'attachment': image, 'random_id': random.randint(0, 2048)})
 
 
+def generate_random_users_list(players):
+    lis = []
+    for i in range(len(players)):
+        x = players[random.randint(0, len(players) - 1)]
+        lis.append(x)
+        players.remove(x)
+    return lis
+
+
 # генератор жертвы
 def generate_jertva(room):
-    # cmd = "SELECT user_id FROM user_info WHERE user_room='%s'" % room
-    # c.execute(cmd)
-    # result = c.fetchall()
-    # for item in result:
-    #    target = item[0]
-    #    target_of_target = item[0]
-    #   while target == item[0] or target_of_target == item[0]:
-    #       new_target = result[random.randint(0, len(result) - 1)][0]
-    #       target = new_target
-    #       cmd = "SELECT target_id FROM user_info WHERE user_id='%d'" % target
-    #       c.execute(cmd)
-    #       target_of_target = c.fetchone()[0]
-    #   cmd = "UPDATE user_info SET target_id=%d WHERE user_id=%d" % (target, item[0])
-    #    c.execute(cmd)
-    #    conn.commit()
-
     cmd = "SELECT user_id FROM user_info WHERE user_room='%s'" % room
     c.execute(cmd)
     result = c.fetchall()
-    jertva = []
-    killers = []
-    target = ''
-    user = ''
-    for item in result:
-        jertva.append(item[0])
-        killers.append(item[0])
-    for b in range(len(jertva)):
-        i = random.randint(0, len(killers) - 1)
-        if str(jertva[b]) != str(killers[i]):
-            user = str(jertva[b])
-            target = str(killers[i])
-            killers.pop(i)
-        cmd = "UPDATE user_info SET target_id='%s' WHERE user_id='%s'" % (str(target), str(user))
+    players = generate_random_users_list(result)
+    for item in players:
+        cmd = "UPDATE user_info SET target_id=%d WHERE user_id=%d" % (players[(players.index(item) + 1) % len(players)][0], item[0])
         c.execute(cmd)
         conn.commit()
 
@@ -375,69 +358,65 @@ def check_alive(room):
     return len(result)
 
 
+def room_end_game(room):
+    print('DELETE', room)
+    cmd = "DELETE FROM game_info WHERE room='%s'" % room
+    c.execute(cmd)
+    conn.commit()
+
+
+def users_win(room):
+    cmd = "SELECT user_id FROM user_info WHERE is_dead = 0 AND user_room = '%s'" % room
+    c.execute(cmd)
+    return c.fetchall()
+
+
+def send_winners_to_room(image_1, image_2, room):
+    cmd = "SELECT user_id FROM user_info WHERE user_room='%s'" % room
+    c.execute(cmd)
+    result = c.fetchall()
+    for item in result:
+        vk.method('messages.send', {'user_id': item[0],
+                                    'message': "Игра окончена, поздравим победителей!",
+                                    'attachment': image_1, 'random_id': random.randint(0, 2048)})
+        vk.method('messages.send', {'user_id': item[0],
+                                    'attachment': image_2, 'random_id': random.randint(0, 2048)})
+
+
+def users_end_game(room):
+    cmd = "SELECT user_id FROM user_info WHERE user_room='%s'" % room
+    c.execute(cmd)
+    result = c.fetchall()
+    for item in result:
+        print(result)
+        set_user_state(item[0], "0")
+        set_user_room(item[0], "")
+        set_user_wait_kill(item[0], 0)
+        cmd = "UPDATE user_info SET is_dead=0 WHERE user_id='%s'" % item[0]
+        c.execute(cmd)
+        conn.commit()
+        cmd = "UPDATE user_info SET user_password='%s' WHERE user_id='%s'" % (generate_user_password(), item[0])
+        c.execute(cmd)
+        conn.commit()
+
+
 # написание сообщения
 def write_msg(user_id, message):
     vk.method('messages.send', {'user_id': user_id, 'message': message, 'random_id': random.randint(0, 2048)})
 
 
 # обработка сообщений
-def check_message(cur_event):
+def vk_bot_osnova(cur_event):
     message = cur_event.text
     user_id = cur_event.user_id
     # if cur_event.text[0] == "/":
     # write_msg(event.user_id, commander.do(message[1::]))
 
-    if message.lower() == "сначала игра приключение":
-        set_user_progress(user_id, "0")
-
     if message.lower() == "игра приключение":
         set_user_in_game(user_id, "1")
         write_msg(user_id, bot.new_message(message))
 
-        if int(get_user_progress(user_id)[0]) == 0:
-            write_msg(user_id, "выберите рассу из предложенного списка: Человек, Эльф, Орк")
-
-    elif int(get_user_in_game(user_id)[0]) == 1:
-
-        if message.lower() == "выход игра приключение":
-            set_user_in_game(user_id, "0")
-            write_msg(user_id, "Возвращайтесь скорее! Вас ждут приключения!")
-
-        elif int(get_user_progress(user_id)[0]) == 0:
-            if message.lower() == "человек":
-                set_user_race(user_id, "человек")
-                set_user_skill_1(user_id, "2")
-                set_user_skill_2(user_id, "2")
-                set_user_skill_3(user_id, "2")
-                set_user_progress(user_id, "1")
-            elif message.lower() == "эльф":
-                set_user_race(user_id, "эльф")
-                set_user_skill_1(user_id, "1")
-                set_user_skill_2(user_id, "2")
-                set_user_skill_3(user_id, "3")
-                set_user_progress(user_id, "1")
-            elif message.lower() == "орк":
-                set_user_race(user_id, "орк")
-                set_user_skill_1(user_id, "3")
-                set_user_skill_2(user_id, "2")
-                set_user_skill_3(user_id, "1")
-                set_user_progress(user_id, "1")
-            else:
-                write_msg(user_id, "Я не понял ваши слова, выберите рассу из предложенного списка: Человек, Эльф, Орк")
-
-        elif int(get_user_progress(user_id)[0]) == 1:
-            write_msg(user_id, "отлично, ваша расса теперь " + str(get_user_race(user_id)[0])
-                      + ".Ваша сила, красноречие и сила магии равны: " + str(get_user_skill_1(user_id)[0])
-                      + ", " + str(get_user_skill_2(user_id)[0]) + ", " + str(get_user_skill_3(user_id)[0])
-                      + ". Если вы захотите всё изменить напишитe: сначала игра приключение")
-            write_msg(user_id, "Да начнутся приключения!")
-            set_user_progress(user_id, "2")
-        elif int(get_user_progress(user_id)[0]) == 2:
-            write_msg(user_id, "Ваши приключения скоро начнутся, ожидайте.")
-    elif get_user_state(user_id) is None:
-        write_msg(user_id, bot.new_message(message))
-
-    elif message.lower() == "регистрация киллер":
+    elif message.lower() == "игра киллер":
         if get_user_state(user_id)[0] == "registration_over":
             write_msg(user_id, "Вы уже зарегестрированы на игру, ожидайте начало игры &#9851;" +
                       "Ваша комната &#128709; : " + get_user_room(user_id) + '\n'
@@ -446,32 +425,23 @@ def check_message(cur_event):
             write_msg(user_id, bot.new_message(message))
             set_user_state(user_id, "registration_image")
     elif message.lower() == "перерегистрация киллер":
-        write_msg(user_id, bot.new_message("регистрация киллер"))
+        write_msg(user_id, bot.new_message("игра киллер"))
         set_user_state(user_id, "registration_image")
         set_user_image(user_id, "")
         set_user_room(user_id, "")
     else:
-        # if get_user_state(user_id) == "registration":
-        #    print(get_user_image(user_id), '12')
-        #    if get_user_image(user_id) is None:
-        #        set_user_state(user_id, "registration_image")
-        #        if get_image_from_dialogue(cur_event) is None:
-        #            write_msg(user_id, "Я не смог найти фотографию в сообщении, отправьте мне фотографию")
-        #        else:
-        #            write_msg(user_id, bot.new_message(message))
-        #    else:
-        #        write_msg(user_id, bot.new_message(message))
+        if get_user_state(user_id) is None:
+            write_msg(user_id, bot.new_message(message))
+
         if get_user_state(user_id)[0] == "registration_over":
-            if cur_event.text == 'смена стадии ' + str(get_user_room(user_id)) + " " + str(
-                    get_password_room(get_user_room(user_id))):
-                a = message.split(' ')
-                set_game_stage(1, a[2])
-                send_message_to_room("Внимание, игра началась!", a[2])
+            if cur_event.text == 'смена стадии ' + str(get_user_room(user_id)) + " " + str(get_password_room(get_user_room(user_id))):
+                set_game_stage(1, get_user_room(user_id))
+                send_message_to_room("Внимание, игра началась!", get_user_room(user_id))
                 send_message_to_room(
                     "Для того, чтобы убить жертву, вам нужно написать мне её пароль. Чтобы узнать свой пароль напишите: мой пароль.",
-                    a[2])
-                generate_jertva(a[2])
-                send_message_about_jertva_to_room(a[2])
+                    get_user_room(user_id))
+                generate_jertva(get_user_room(user_id))
+                send_message_about_jertva_to_room(get_user_room(user_id))
             elif cur_event.text.lower() == 'мой пароль':
                 write_msg(user_id, "Ваш пароль: " + get_user_password(user_id))
             else:
@@ -510,7 +480,7 @@ def check_message(cur_event):
 
 
 # обработка сообщений во время игры
-def check_message_on_stage_one(cur_event):
+def vk_bot_in_killer(cur_event):
     message = cur_event.text
     user_id = cur_event.user_id
     # if cur_event.text[0] == "/":
@@ -521,14 +491,14 @@ def check_message_on_stage_one(cur_event):
         send_message_to_room("Внимание, игра окончена, идет подсчет итогов, ожидайте!", str(get_user_room(user_id)))
     elif cur_event.text.lower() == 'мой пароль':
         write_msg(user_id, "Ваш пароль: " + get_user_password(user_id))
-    elif cur_event.text.lower() == 'регистрация киллер':
+    elif cur_event.text.lower() == 'игра киллер':
         write_msg(user_id, "Регистрация невозможна, вы уже зарегестрированы")
     elif cur_event.text.lower() == 'перегистрация киллер':
         write_msg(user_id, "Перегистрация невозможна, вы находитесь в игре")
-    elif cur_event.text == "Убийство":
+    elif cur_event.text.lower() == "убийство":
         write_msg(user_id, "Вас понял, ожидаю пароль цели.")
         set_user_wait_kill(user_id, 1)
-    elif cur_event.text == "Отмена убийства":
+    elif cur_event.text.lower() == "отмена убийства":
         write_msg(user_id, "Так точно, ожидаю.")
         set_user_wait_kill(user_id, 0)
     elif cur_event.text == "288008":
@@ -537,7 +507,6 @@ def check_message_on_stage_one(cur_event):
         if int(get_user_wait_kill(user_id)) == 1:
             if check_kill(user_id, cur_event.text) is True:
                 set_user_wait_kill(user_id, 0)
-                print(check_alive(get_user_room(user_id)))
                 if check_alive(get_user_room(user_id)) != 3:
                     new_target = change_jertva(user_id)
                     image = generate_message_about_jertva(new_target)
@@ -545,24 +514,85 @@ def check_message_on_stage_one(cur_event):
                                                 'message': "Поздравляем, вы убили свою жертву, вот данные о следующей жертве:",
                                                 'attachment': image, 'random_id': random.randint(0, 2048)})
                 else:
-                    send_message_to_room("Внимание, осталось два киллера, игра окончена!", str(get_user_room(user_id)))
-                    set_game_stage(2, str(get_user_room(user_id)))
+                    new_target = change_jertva(user_id)
+                    user_room = str(get_user_room(user_id))
+                    send_message_to_room("Внимание, осталось два киллера, игра окончена!", user_room)
+                    winners = users_win(user_room)
+                    image_winner_1 = generate_message_about_jertva(winners[0][0])
+                    image_winner_2 = generate_message_about_jertva(winners[1][0])
+                    send_winners_to_room(image_winner_1, image_winner_2, user_room)
+                    send_message_to_room(
+                        "Внимание, комната будет удалена, а вы перестанете быть зарегестрированным пользователем, для начала новой игры напишите: регистрация киллер.",
+                        user_room)
+                    users_end_game(user_room)
+                    room_end_game(user_room)
             else:
                 write_msg(user_id, "Цель по данному паролю не распознана, ожидаю новый пароль.")
         else:
             write_msg(user_id, bot.new_message(message))
 
 
-# обработка сообщений во время конца игры
-def check_message_on_stage_two(cur_event):
+def vk_bot_adventure(cur_event):
     message = cur_event.text
     user_id = cur_event.user_id
-    if cur_event.text.lower() == 'регистрация киллер':
-        write_msg(user_id, "Регистрация невозможна, вы уже зарегестрированы")
-    elif cur_event.text.lower() == 'перегистрация киллер':
-        write_msg(user_id, "Перегистрация невозможна, вы находитесь в игре")
-    else:
-        write_msg(user_id, "Ожидайте конца игры, ведется подсчет итогов")
+
+    if message.lower() == "сначала игра приключение":
+        set_user_progress(user_id, "0")
+
+    elif message.lower() == "выход игра приключение":
+        set_user_in_game(user_id, "0")
+        write_msg(user_id, "Возвращайтесь скорее! Вас ждут приключения!")
+
+    elif message.lower() == "начать приключение":
+        if int(get_user_progress(user_id)[0]) == 0:
+            write_msg(user_id, "выберите рассу из предложенного списка: Человек, Эльф, Орк")
+            set_user_progress(user_id, "1")
+        else:
+            write_msg(user_id, "Вы уже странствуете по свету Неверленда, если хотите начать сначла, напишите: сначала игра приключение")
+
+    elif int(get_user_progress(user_id)[0]) == 1:
+        if message.lower() == "человек":
+            set_user_race(user_id, "человек")
+            set_user_skill_1(user_id, "2")
+            set_user_skill_2(user_id, "2")
+            set_user_skill_3(user_id, "2")
+            set_user_progress(user_id, "2")
+            write_msg(user_id, "отлично, ваша расса: " + str(get_user_race(user_id)[0])
+                      + ". Ваша сила, красноречие и сила магии равны: " + str(get_user_skill_1(user_id)[0])
+                      + ", " + str(get_user_skill_2(user_id)[0]) + ", " + str(get_user_skill_3(user_id)[0])
+                      + ". Если вы готовы начать своё приключение напишите: готов(а). Если вы хотите изменить свой старт напишите: сначала игра приключение")
+        elif message.lower() == "эльф":
+            set_user_race(user_id, "эльф")
+            set_user_skill_1(user_id, "1")
+            set_user_skill_2(user_id, "2")
+            set_user_skill_3(user_id, "3")
+            set_user_progress(user_id, "2")
+            write_msg(user_id, "отлично, ваша расса: " + str(get_user_race(user_id)[0])
+                      + ". Ваша сила, красноречие и сила магии равны: " + str(get_user_skill_1(user_id)[0])
+                      + ", " + str(get_user_skill_2(user_id)[0]) + ", " + str(get_user_skill_3(user_id)[0])
+                      + ". Если вы готовы начать своё приключение напишите: готов(а). Если вы хотите изменить свой старт напишите: сначала игра приключение")
+        elif message.lower() == "орк":
+            set_user_race(user_id, "орк")
+            set_user_skill_1(user_id, "3")
+            set_user_skill_2(user_id, "2")
+            set_user_skill_3(user_id, "1")
+            set_user_progress(user_id, "2")
+            write_msg(user_id, "отлично, ваша расса: " + str(get_user_race(user_id)[0])
+                      + ". Ваша сила, красноречие и сила магии равны: " + str(get_user_skill_1(user_id)[0])
+                      + ", " + str(get_user_skill_2(user_id)[0]) + ", " + str(get_user_skill_3(user_id)[0])
+                      + ". Если вы готовы начать своё приключение напишите: готов(а). Если вы хотите изменить свой старт напишите: сначала игра приключение")
+        else:
+            write_msg(user_id, "Я не понял ваши слова, выберите рассу из предложенного списка: Человек, Эльф, Орк")
+
+    elif int(get_user_progress(user_id)[0]) == 2:
+        if message.lower() == "готов" or message.lower() == "готова":
+            write_msg(user_id, "отлично, ваша расса теперь " + str(get_user_race(user_id)[
+                                                                       0]) + ". Если вы захотите начать приключение сначала напишите: сначала игра приключение")
+            write_msg(user_id, "Да начнутся приключения!")
+            set_user_progress(user_id, "3")
+
+    elif int(get_user_progress(user_id)[0]) == 3:
+        write_msg(user_id, "Ваши приключения скоро начнутся, ожидайте.")
 
 
 print("Сервер запущен")
@@ -575,21 +605,20 @@ for event in longpoll.listen():
 
         bot = VkBot(event.user_id)
 
-        if get_user_state(event.user_id)[0] is None:
-            check_message(event)
+        if get_user_in_game(event.user_id)[0] == 1:
+            vk_bot_adventure(event)
+        elif get_user_state(event.user_id)[0] is None:
+            vk_bot_osnova(event)
         else:
             if get_user_state(event.user_id)[0] == "registration_over":
                 if get_game_stage(get_user_room(event.user_id)) == 0:
                     print('статус комнаты: 0')
-                    check_message(event)
+                    vk_bot_osnova(event)
                 elif get_game_stage(get_user_room(event.user_id)) == 1:
                     print('статус комнаты: 1')
-                    check_message_on_stage_one(event)
-                elif get_game_stage(get_user_room(event.user_id)) == 2:
-                    print('статус комнаты: 2')
-                    check_message_on_stage_two(event)
+                    vk_bot_in_killer(event)
             else:
-                check_message(event)
+                vk_bot_osnova(event)
 
         print('Текст: ', event.text)
         print("-------------------")

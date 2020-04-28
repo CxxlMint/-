@@ -8,7 +8,7 @@ class VkBot:
         print("\nСоздан объект бота!")
         self._USER_ID = user_id
         self._USERNAME = self._get_user_name_from_vk_id(user_id)
-        self._COMMANDS = ["ПРИВЕТ", "!ПОГОДА", "!ВРЕМЯ", "ПОКА", "!КОМАНДЫ", "!ЧИСЛО", '!МОНЕТКА', 'РЕГИСТРАЦИЯ КИЛЛЕР',
+        self._COMMANDS = ["ПРИВЕТ", "!ПОГОДА", "!ВРЕМЯ", "ПОКА", "!КОМАНДЫ", "!ЧИСЛО", '!МОНЕТКА', 'ИГРА КИЛЛЕР',
                           '!ЦИТАТА', "ИГРА ПРИКЛЮЧЕНИЕ", "АУФ"]
 
     def _get_user_name_from_vk_id(self, user_id):

@@ -51,6 +51,16 @@ def register_new_user(user_id):
     conn.commit()
 
 
+def user_dead(user_id):
+    cmd = "DELETE FROM game_adventure WHERE user_id=%d" % user_id
+    c.execute(cmd)
+    conn.commit()
+    cmd = "INSERT INTO game_adventure(user_id, user_save, user_progress, user_skill_1, user_skill_2, user_skill_3," \
+          " user_in_game) VALUES (%d, 0, 0, 0, 0, 0, 0)" % user_id
+    c.execute(cmd)
+    conn.commit()
+
+
 # показывает ожидание убийства
 def get_user_wait_kill(user_id):
     cmd = "SELECT wait_kill FROM user_info WHERE user_id=%d" % user_id
@@ -65,7 +75,7 @@ def set_user_wait_kill(user_id, wait):
     conn.commit()
 
 
-# показывает прогресс игрока в приключении
+# показывает нахождение пользователя в игре
 def get_user_in_game(user_id):
     cmd = "SELECT user_in_game FROM game_adventure WHERE user_id=%d" % user_id
     c.execute(cmd)
@@ -83,7 +93,21 @@ def set_user_in_game(user_id, in_game):
 def get_user_progress(user_id):
     cmd = "SELECT user_progress FROM game_adventure WHERE user_id=%d" % user_id
     c.execute(cmd)
-    return c.fetchone()
+    return c.fetchone()[0]
+
+
+# устанавливает имя игрока в приключении
+def set_user_name(user_id, name):
+    cmd = "UPDATE game_adventure SET user_name = '%s' WHERE user_id=%d" % (name, user_id)
+    c.execute(cmd)
+    conn.commit()
+
+
+# показывает имя игрока в приключении
+def get_user_name(user_id):
+    cmd = "SELECT user_name FROM game_adventure WHERE user_id=%d" % user_id
+    c.execute(cmd)
+    return c.fetchone()[0]
 
 
 # устанавливает прогресс игрока в приключении
@@ -139,7 +163,7 @@ def set_user_skill_3(user_id, skill_3):
 def get_user_race(user_id):
     cmd = "SELECT user_race FROM game_adventure WHERE user_id=%d" % user_id
     c.execute(cmd)
-    return c.fetchone()
+    return c.fetchone()[0]
 
 
 # устанавливает рассу игрока в приключении
@@ -303,7 +327,8 @@ def generate_jertva(room):
     result = c.fetchall()
     players = generate_random_users_list(result)
     for item in players:
-        cmd = "UPDATE user_info SET target_id=%d WHERE user_id=%d" % (players[(players.index(item) + 1) % len(players)][0], item[0])
+        cmd = "UPDATE user_info SET target_id=%d WHERE user_id=%d" % (
+            players[(players.index(item) + 1) % len(players)][0], item[0])
         c.execute(cmd)
         conn.commit()
 
@@ -434,11 +459,12 @@ def vk_bot_osnova(cur_event):
             write_msg(user_id, bot.new_message(message))
 
         if get_user_state(user_id)[0] == "registration_over":
-            if cur_event.text == 'смена стадии ' + str(get_user_room(user_id)) + " " + str(get_password_room(get_user_room(user_id))):
+            if cur_event.text == 'смена стадии ' + str(get_user_room(user_id)) + " " + str(
+                    get_password_room(get_user_room(user_id))):
                 set_game_stage(1, get_user_room(user_id))
                 send_message_to_room("Внимание, игра началась!", get_user_room(user_id))
                 send_message_to_room(
-                    "Для того, чтобы убить жертву, вам нужно написать мне её пароль. Чтобы узнать свой пароль напишите: мой пароль.",
+                    "Для того, чтобы убить жертву, вам нужно написать: убийство, после чего написать мне её пароль. Чтобы узнать свой пароль напишите: мой пароль.",
                     get_user_room(user_id))
                 generate_jertva(get_user_room(user_id))
                 send_message_about_jertva_to_room(get_user_room(user_id))
@@ -522,7 +548,7 @@ def vk_bot_in_killer(cur_event):
                     image_winner_2 = generate_message_about_jertva(winners[1][0])
                     send_winners_to_room(image_winner_1, image_winner_2, user_room)
                     send_message_to_room(
-                        "Внимание, комната будет удалена, а вы перестанете быть зарегестрированным пользователем, для начала новой игры напишите: регистрация киллер.",
+                        "Внимание, комната будет удалена, а вы перестанете быть зарегестрированным пользователем, для начала новой игры напишите: игра киллер.",
                         user_room)
                     users_end_game(user_room)
                     room_end_game(user_room)
@@ -548,14 +574,15 @@ def vk_bot_adventure(cur_event):
             write_msg(user_id, "выберите рассу из предложенного списка: Человек, Эльф, Орк")
             set_user_progress(user_id, "1")
         else:
-            write_msg(user_id, "Вы уже странствуете по свету Неверленда, если хотите начать сначла, напишите: сначала игра приключение")
+            write_msg(user_id,
+                      "Вы уже странствуете по свету Неверленда, если хотите начать сначла, напишите: сначала игра приключение")
 
     elif int(get_user_progress(user_id)[0]) == 1:
         if message.lower() == "человек":
             set_user_race(user_id, "человек")
             set_user_skill_1(user_id, "2")
-            set_user_skill_2(user_id, "2")
-            set_user_skill_3(user_id, "2")
+            set_user_skill_2(user_id, "3")
+            set_user_skill_3(user_id, "1")
             set_user_progress(user_id, "2")
             write_msg(user_id, "отлично, ваша расса: " + str(get_user_race(user_id)[0])
                       + ". Ваша сила, красноречие и сила магии равны: " + str(get_user_skill_1(user_id)[0])
@@ -574,7 +601,7 @@ def vk_bot_adventure(cur_event):
         elif message.lower() == "орк":
             set_user_race(user_id, "орк")
             set_user_skill_1(user_id, "3")
-            set_user_skill_2(user_id, "2")
+            set_user_skill_2(user_id, "1")
             set_user_skill_3(user_id, "1")
             set_user_progress(user_id, "2")
             write_msg(user_id, "отлично, ваша расса: " + str(get_user_race(user_id)[0])
@@ -586,13 +613,114 @@ def vk_bot_adventure(cur_event):
 
     elif int(get_user_progress(user_id)[0]) == 2:
         if message.lower() == "готов" or message.lower() == "готова":
-            write_msg(user_id, "отлично, ваша расса теперь " + str(get_user_race(user_id)[
-                                                                       0]) + ". Если вы захотите начать приключение сначала напишите: сначала игра приключение")
+            write_msg(user_id, "отлично, ваша расса теперь " + str(get_user_race(
+                user_id)) + ". Если вы захотите начать приключение сначала напишите: сначала игра приключение")
             write_msg(user_id, "Да начнутся приключения!")
+            write_msg(user_id, "Вы просыпаетесь в темной и сырой камере. К вам подходит стражник.")
+            if str(get_user_race(user_id)).lower() == "человек":
+                write_msg(user_id, "Стражник: 'Просыпайся, пришел день твоей смерти.'")
+            elif str(get_user_race(user_id)).lower() == "эльф":
+                write_msg(user_id, "Стражник: 'Просыпайся, остроухий, пришел день твоей смерти.'")
+            elif str(get_user_race(user_id)).lower() == "орк":
+                write_msg(user_id, "Стражник: 'Просыпайся, урод, пришел день твоей смерти.'")
+            write_msg(user_id,
+                      "ваши действия:\n 1) промолчать.\n 2) напасть [нужна сила или сила магии 3].\n 3) ответить грубо.\n 4) ответить нейтрально")
             set_user_progress(user_id, "3")
 
     elif int(get_user_progress(user_id)[0]) == 3:
-        write_msg(user_id, "Ваши приключения скоро начнутся, ожидайте.")
+        a = 0
+        if message.lower() == '1' or message.lower() == '1)' or message.lower() == 'промолчать':
+            if str(get_user_race(user_id)).lower() == "человек":
+                write_msg(user_id, "Стражник: 'Давай вставай'")
+            elif str(get_user_race(user_id)).lower() == "эльф":
+                write_msg(user_id, "Стражник: 'Ну же вставай'")
+            elif str(get_user_race(user_id)).lower() == "орк":
+                write_msg(user_id, "Стражник: 'Вствай, зеленый.'")
+            a = 1
+        elif (message.lower() == '2' or message.lower() == '2)' or message.lower() == 'напасть') and (int(get_user_skill_1(user_id))[0] == 3 or int(get_user_skill_3(user_id))[0] == 3):
+            if str(get_user_race(user_id)).lower() == "эльф":
+                write_msg(user_id, "Вы: [произносите заклинание]")
+                write_msg(user_id, "Заклинание не удалось, так как кандалы на ваших руках блокируют вашу магию.")
+            elif str(get_user_race(user_id)).lower() == "орк":
+                write_msg(user_id, "Вы попытались напасть на стражника, но на ваших ногах и руках были надеты кандалы.")
+            write_msg(user_id, "Стражник: 'Ах ты ублюдок!'")
+            write_msg(user_id, "Прошло мгновение и меч стражника оказался воткнутым в вашу грудь.")
+            write_msg(user_id, "Поздравляем, вы погибли. Вы можете загрузиться или начать заново.")
+            user_dead(user_id)
+        elif message.lower() == '3' or message.lower() == '3)' or message.lower() == 'ответить грубо':
+            if str(get_user_race(user_id)).lower() == "человек":
+                write_msg(user_id, "Вы: 'Отвали, я сплю. А еще я хочу пить, принеси мне что-нибудь выпить'")
+            elif str(get_user_race(user_id)).lower() == "эльф":
+                write_msg(user_id, "Вы: 'Bloede Dh’oine!' (Проклятый человек!)")
+            elif str(get_user_race(user_id)).lower() == "орк":
+                write_msg(user_id, "Вы: 'Я оторву твою грязну голову!'")
+            write_msg(user_id, "Стражник: 'Заткнись и вставай.'")
+            a = 1
+        elif message.lower() == '4' or message.lower() == '4)' or message.lower() == 'ответить нейтрально':
+            write_msg(user_id, "Вы: Где я и почему я здесь?'")
+            if str(get_user_race(user_id)).lower() == "человек":
+                write_msg(user_id,
+                          "Стражник: 'Вы находитесь в тюрьме Нумерийской империи за дезертирство. Вас ждет казнь через повешанье.'")
+            elif str(get_user_race(user_id)).lower() == "эльф":
+                write_msg(user_id,
+                          "Стражник: 'Вы находитесь в тюрьме Нумерийской империи за попытку убийства Майкана - нашего Императора. Вас ждет казнь через повешанье.'")
+            elif str(get_user_race(user_id)).lower() == "орк":
+                write_msg(user_id,
+                          "Стражник: 'Вы находитесь в тюрьме Нумерийской империи за налет на деревню рядом с Камерией. Вас ждет казнь через повешанье.'")
+            a = 1
+        else:
+            write_msg(user_id,"У вас нет необходимых качеств или вы неправильно написали свой выбор, выберите что-то другое или напишите иначе.")
+        if a == 1:
+            write_msg(user_id,
+                      "С ваших ног сняли кандалы и стражник повел вас к выходу из корпуса. Вы шли минут 5 пока вас не посадили в тюремную повозку к другим заключенным.")
+            if str(get_user_race(user_id)).lower() == "орк":
+                write_msg(user_id, "Заключенный_3: 'Я не хочу ехать рядом с каким-то вонючим орком!'")
+                write_msg(user_id, "Стражник: 'Заткнись и сиди тихо.'")
+            elif str(get_user_race(user_id)).lower() == "орк":
+                write_msg(user_id, "Заключенный_3: 'Я не хочу ехать рядом с грязным эльфом!'")
+                write_msg(user_id, "Стражник: 'Заткнись и сиди тихо.'")
+            write_msg(user_id,
+                      "Вы вехали из тюрьмы и перед вами показались замечательые виды города Камерия, торговой столицы"
+                      " Нумерийской империи: Высокие и толстые крепостные стены с золотыми от солнца башнями, большие"
+                      " красивые жилые дома, огромный центральный рынок, на котом можно было купить почти всё на этом свете, а так же главный центральный замок.")
+            write_msg(user_id, "Заключенный_1: 'Эй, тебя как звать?'")
+            write_msg(user_id, "Внимание, напишите своё имя, потом его нельзя будет изменить.")
+            set_user_progress(user_id, "4")
+
+    elif int(get_user_progress(user_id)[0]) == 4:
+        set_user_name(user_id, message)
+        write_msg(user_id,
+                  "Заключенный_1: 'Ну привет, " + get_user_name(user_id) + ". Меня Астра звать, родом я из Империи.'")
+        if str(get_user_race(user_id)).lower() == "человек":
+            write_msg(user_id,
+                      "Астра: 'А ты, как я вижу, тоже из Империи. Когда нас довезут до места казни, ты поможешь осуществить мой план по побегу.'")
+        elif str(get_user_race(user_id)).lower() == "эльф":
+            write_msg(user_id,
+                      "Астра: 'А ты, как я вижу, из Виа-Заира. Когда нас довезут до места казни, ты поможешь осуществить мой план по побегу.'")
+        elif str(get_user_race(user_id)).lower() == "орк":
+            write_msg(user_id,
+                      "Астра: 'А ты, как я вижу, из Гарда. Когда нас довезут до места казни, ты поможешь осуществить мой план по побегу.'")
+        write_msg(user_id, "Стражник: 'Эй ты заткнись, в какой раз уже едешь и так не научилась молчать.'")
+        write_msg(user_id, "Астра: 'Ты тоже не в первый раз едешь, а все ворчишь.'")
+        write_msg(user_id, "Астра: *шепотом* 'И так, нужно решать как выбираться будем.'")
+        write_msg(user_id, "Астра: *шепотом* 'Как только мы выйдем из повозки, ты должен будешь отвлечь стражу, как угодно, мне без разницы, самое главное отвелчь.'")
+        write_msg(user_id,"Спустя пару улиц, ваша повозка выехала на главную площадь, в центре которой красовались виселицы."
+                          " Повозка остановилась и заключенных начали выгружать. Вы заметили, что Астра вам подмигнула - пора действовать.")
+        write_msg(user_id,"Что вы будете делать? 1) заговорить стражников [нужно красноречие 3]\n 2)"
+                          " произнести любое заклинание [нужна сила магии 3]\n 3) напасть на стражника [нужна сила 3] 4) бездействоввать")
+        set_user_progress(user_id, "5")
+
+    elif int(get_user_progress(user_id)[0]) == 4:
+        a = 0
+        if message.lower() == "1" or message.lower() == "1)" or message.lower() == "заговорить" or message.lower() == "заговорить стражников":
+            write_msg(user_id, "Вы закричали во весь голос и упали на землю, якобы от боли, но этого было чтобы обратить на себя внимание стражников.")
+            a = 1
+        elif message.lower() == "2" or message.lower() == "2)" or message.lower() == "произнести заклинание" or message.lower() == "произнести любое заклинание":
+            write_msg(user_id, "Вы закричали во весь голос и упали на землю, якобы от боли, но этого было чтобы обратить на себя внимание стражников.")
+
+
+
+
 
 
 print("Сервер запущен")

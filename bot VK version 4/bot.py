@@ -41,16 +41,100 @@ def register_new_user(user_id):
     cmd = "INSERT INTO users(user_id, state) VALUES (%d, '')" % user_id
     c.execute(cmd)
     conn.commit()
+
     cmd = "INSERT INTO user_info(user_id, user_password, is_dead, wait_kill) VALUES (%d, '%s', 0, 0)" % (user_id,
                                                                                                          generate_user_password())
     c.execute(cmd)
     conn.commit()
+
     cmd = "INSERT INTO game_adventure(user_id, user_save, user_progress, user_skill_1, user_skill_2, user_skill_3," \
           " user_in_game) VALUES (%d, 0, 0, 0, 0, 0, 0)" % user_id
     c.execute(cmd)
     conn.commit()
 
+    cmd = "INSERT INTO anon_chat(user_id, user_in_chat, user_wait) VALUES (%d, 0, 0)" % user_id
+    c.execute(cmd)
+    conn.commit()
 
+
+# _____________________________________анонимный чат__________________________________________________________________
+def get_user_in_chat(user_id):
+    cmd = "SELECT user_in_chat FROM anon_chat WHERE user_id=%d" % user_id
+    c.execute(cmd)
+    return c.fetchone()[0]
+
+
+def set_user_in_chat(user_id, in_chat):
+    cmd = "UPDATE anon_chat SET user_in_chat = %d WHERE user_id=%d" % (int(in_chat), user_id)
+    c.execute(cmd)
+    conn.commit()
+
+
+def get_user_wait(user_id):
+    cmd = "SELECT user_wait FROM anon_chat WHERE user_id=%d" % user_id
+    c.execute(cmd)
+    return c.fetchone()[0]
+
+
+def set_user_wait(user_id, wait):
+    cmd = "UPDATE anon_chat SET user_wait = %d WHERE user_id=%d" % (int(wait), user_id)
+    c.execute(cmd)
+    conn.commit()
+
+
+def get_user_friend(user_id):
+    cmd = "SELECT user_friend FROM anon_chat WHERE user_id=%d" % user_id
+    c.execute(cmd)
+    return c.fetchone()[0]
+
+
+def poisk(user_id):
+    users = []
+    friend = user_id
+    cmd = "SELECT user_id FROM anon_chat WHERE user_wait = 1"
+    c.execute(cmd)
+    result = c.fetchall()
+    for i in range(len(result)):
+        users.append(str(result[i][0]))
+    print(users)
+    while True:
+        friend = users[random.randint(0, len(users) - 1)]
+        if int(friend) != int(user_id):
+            break
+    print(user_id, friend)
+    set_user_friend(int(user_id), int(friend))
+
+
+def set_user_friend(user_id, friend_id):
+    cmd = "UPDATE anon_chat SET user_friend = %d WHERE user_id=%d" % (user_id, friend_id)
+    c.execute(cmd)
+    conn.commit()
+
+    cmd = "UPDATE anon_chat SET user_friend = %d WHERE user_id=%d" % (friend_id, user_id)
+    c.execute(cmd)
+    conn.commit()
+
+    set_user_wait(user_id, "0")
+    set_user_wait(friend_id, "0")
+
+    write_msg(user_id, "Мы нашли вам собеседника, для выхода напишите: выход")
+    write_msg(friend_id, "Мы нашли вам собеседника, для выхода напишите: выход")
+
+
+def delete_user_friend(user_id):
+    write_msg(user_id, "Вы вышли из переписки. Для поиска нового собеседника напишите: поиск.\nДля выхода из анонимного чата напишите: выход анонимный чат.")
+    write_msg(get_user_friend(user_id), "Ваш собеседник вышел. Для поиска нового собеседника напишите: поиск.\nДля выхода из анонимного чата напишите: выход анонимный чат.")
+
+    cmd = "UPDATE anon_chat SET user_friend = NULL WHERE user_id=%d" % get_user_friend(user_id)
+    c.execute(cmd)
+    conn.commit()
+
+    cmd = "UPDATE anon_chat SET user_friend = NULL WHERE user_id=%d" % user_id
+    c.execute(cmd)
+    conn.commit()
+
+
+# ____________________________________________________________________________________________________________________
 def user_dead(user_id):
     cmd = "DELETE FROM game_adventure WHERE user_id=%d" % user_id
     c.execute(cmd)
@@ -441,6 +525,10 @@ def vk_bot_osnova(cur_event):
         set_user_in_game(user_id, "1")
         write_msg(user_id, bot.new_message(message))
 
+    elif message.lower() == "анонимный чат":
+        set_user_in_chat(user_id, 1)
+        write_msg(user_id, "Вы вошли в анонимный чат, для поиска собеседника напишите: поиск, для выхода из анонимного чата напишите: выход анонимный чат.")
+
     elif message.lower() == "игра киллер":
         if get_user_state(user_id)[0] == "registration_over":
             write_msg(user_id, "Вы уже зарегестрированы на игру, ожидайте начало игры &#9851;" +
@@ -637,7 +725,8 @@ def vk_bot_adventure(cur_event):
             elif str(get_user_race(user_id)).lower() == "орк":
                 write_msg(user_id, "Стражник: 'Вствай, зеленый.'")
             a = 1
-        elif (message.lower() == '2' or message.lower() == '2)' or message.lower() == 'напасть') and (int(get_user_skill_1(user_id))[0] == 3 or int(get_user_skill_3(user_id))[0] == 3):
+        elif (message.lower() == '2' or message.lower() == '2)' or message.lower() == 'напасть') and (
+                int(get_user_skill_1(user_id))[0] == 3 or int(get_user_skill_3(user_id))[0] == 3):
             if str(get_user_race(user_id)).lower() == "эльф":
                 write_msg(user_id, "Вы: [произносите заклинание]")
                 write_msg(user_id, "Заклинание не удалось, так как кандалы на ваших руках блокируют вашу магию.")
@@ -669,7 +758,8 @@ def vk_bot_adventure(cur_event):
                           "Стражник: 'Вы находитесь в тюрьме Нумерийской империи за налет на деревню рядом с Камерией. Вас ждет казнь через повешанье.'")
             a = 1
         else:
-            write_msg(user_id,"У вас нет необходимых качеств или вы неправильно написали свой выбор, выберите что-то другое или напишите иначе.")
+            write_msg(user_id,
+                      "У вас нет необходимых качеств или вы неправильно написали свой выбор, выберите что-то другое или напишите иначе.")
         if a == 1:
             write_msg(user_id,
                       "С ваших ног сняли кандалы и стражник повел вас к выходу из корпуса. Вы шли минут 5 пока вас не посадили в тюремную повозку к другим заключенным.")
@@ -703,24 +793,59 @@ def vk_bot_adventure(cur_event):
         write_msg(user_id, "Стражник: 'Эй ты заткнись, в какой раз уже едешь и так не научилась молчать.'")
         write_msg(user_id, "Астра: 'Ты тоже не в первый раз едешь, а все ворчишь.'")
         write_msg(user_id, "Астра: *шепотом* 'И так, нужно решать как выбираться будем.'")
-        write_msg(user_id, "Астра: *шепотом* 'Как только мы выйдем из повозки, ты должен будешь отвлечь стражу, как угодно, мне без разницы, самое главное отвелчь.'")
-        write_msg(user_id,"Спустя пару улиц, ваша повозка выехала на главную площадь, в центре которой красовались виселицы."
-                          " Повозка остановилась и заключенных начали выгружать. Вы заметили, что Астра вам подмигнула - пора действовать.")
-        write_msg(user_id,"Что вы будете делать? 1) заговорить стражников [нужно красноречие 3]\n 2)"
-                          " произнести любое заклинание [нужна сила магии 3]\n 3) напасть на стражника [нужна сила 3] 4) бездействоввать")
+        write_msg(user_id,
+                  "Астра: *шепотом* 'Как только мы выйдем из повозки, ты должен будешь отвлечь стражу, как угодно, мне без разницы, самое главное отвелчь.'")
+        write_msg(user_id,
+                  "Спустя пару улиц, ваша повозка выехала на главную площадь, в центре которой красовались виселицы."
+                  " Повозка остановилась и заключенных начали выгружать. Вы заметили, что Астра вам подмигнула - пора действовать.")
+        write_msg(user_id, "Что вы будете делать? 1) заговорить стражников [нужно красноречие 3]\n 2)"
+                           " произнести любое заклинание [нужна сила магии 3]\n 3) напасть на стражника [нужна сила 3] 4) бездействоввать")
         set_user_progress(user_id, "5")
 
     elif int(get_user_progress(user_id)[0]) == 4:
         a = 0
         if message.lower() == "1" or message.lower() == "1)" or message.lower() == "заговорить" or message.lower() == "заговорить стражников":
-            write_msg(user_id, "Вы закричали во весь голос и упали на землю, якобы от боли, но этого было чтобы обратить на себя внимание стражников.")
+            write_msg(user_id,
+                      "Вы закричали во весь голос и упали на землю, якобы от боли, но этого было чтобы обратить на себя внимание стражников.")
             a = 1
         elif message.lower() == "2" or message.lower() == "2)" or message.lower() == "произнести заклинание" or message.lower() == "произнести любое заклинание":
-            write_msg(user_id, "Вы закричали во весь голос и упали на землю, якобы от боли, но этого было чтобы обратить на себя внимание стражников.")
+            write_msg(user_id,
+                      "Вы закричали во весь голос и упали на землю, якобы от боли, но этого было чтобы обратить на себя внимание стражников.")
 
 
+def vk_bot_anon_chat(cur_event):
+    message = cur_event.text
+    user_id = cur_event.user_id
 
+    if message.lower() == "выход анонимный чат":
+        set_user_in_chat(user_id, 0)
+        set_user_wait(user_id, 0)
+        write_msg(user_id, 'Вы вышли из чата.')
 
+    elif get_user_friend(user_id) is None or get_user_friend(user_id) == '':
+
+        if message.lower() == "поиск":
+            write_msg(user_id, 'Ожидайте, ищем собеседника')
+            set_user_wait(user_id, 1)
+            poisk(user_id)
+
+        else:
+            if get_user_wait(user_id) == 1:
+                write_msg(user_id, "Идет поиск собеседника, ожидайте")
+            else:
+                write_msg(user_id, 'Для поиска собеседника напишите: поиск.')
+
+    else:
+        if message.lower() == 'выход':
+            delete_user_friend(user_id)
+        else:
+            dialog_image = get_image_from_dialogue(cur_event)
+            if dialog_image is None:
+                write_msg(get_user_friend(user_id), message)
+            else:
+                vk.method('messages.send', {'user_id': get_user_friend(user_id),
+                                            'message': message,
+                                            'attachment': dialog_image, 'random_id': random.randint(0, 2048)})
 
 
 print("Сервер запущен")
@@ -735,6 +860,8 @@ for event in longpoll.listen():
 
         if get_user_in_game(event.user_id)[0] == 1:
             vk_bot_adventure(event)
+        elif get_user_in_chat(event.user_id) == 1:
+            vk_bot_anon_chat(event)
         elif get_user_state(event.user_id)[0] is None:
             vk_bot_osnova(event)
         else:

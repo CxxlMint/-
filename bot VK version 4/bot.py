@@ -58,6 +58,17 @@ def register_new_user(user_id):
 
 
 # _____________________________________анонимный чат__________________________________________________________________
+def get_all_users_in_chat():
+    users = []
+    cmd = "SELECT user_id FROM anon_chat WHERE user_in_chat = 1"
+    c.execute(cmd)
+    result = c.fetchall()
+    for i in range(len(result)):
+        users.append(str(result[i][0]))
+    return len(users)
+
+
+
 def get_user_in_chat(user_id):
     cmd = "SELECT user_in_chat FROM anon_chat WHERE user_id=%d" % user_id
     c.execute(cmd)
@@ -97,12 +108,13 @@ def poisk(user_id):
     for i in range(len(result)):
         users.append(str(result[i][0]))
     print(users)
-    while True:
-        friend = users[random.randint(0, len(users) - 1)]
-        if int(friend) != int(user_id):
-            break
-    print(user_id, friend)
-    set_user_friend(int(user_id), int(friend))
+    if len(users) != 1:
+        while True:
+            friend = users[random.randint(0, len(users) - 1)]
+            if int(friend) != int(user_id):
+                break
+        print(user_id, friend)
+        set_user_friend(int(user_id), int(friend))
 
 
 def set_user_friend(user_id, friend_id):
@@ -527,7 +539,10 @@ def vk_bot_osnova(cur_event):
 
     elif message.lower() == "анонимный чат":
         set_user_in_chat(user_id, 1)
-        write_msg(user_id, "Вы вошли в анонимный чат, для поиска собеседника напишите: поиск, для выхода из анонимного чата напишите: выход анонимный чат.")
+        if int(get_all_users_in_chat()) > 4 and int(get_all_users_in_chat()) < 2:
+            write_msg(user_id, "Вы вошли в анонимный чат. В данный момент в чате общаются " + str(get_all_users_in_chat()) + " человек, для поиска собеседника напишите: поиск, для выхода из анонимного чата напишите: выход анонимный чат.")
+        else:
+            write_msg(user_id, "Вы вошли в анонимный чат. В данный момент в чате общаются " + str(get_all_users_in_chat()) + " человека, для поиска собеседника напишите: поиск, для выхода из анонимного чата напишите: выход анонимный чат.")
 
     elif message.lower() == "игра киллер":
         if get_user_state(user_id)[0] == "registration_over":
@@ -567,7 +582,9 @@ def vk_bot_osnova(cur_event):
             else:
                 set_user_image(user_id, dialog_image)
                 set_user_state(user_id, "registration_room")
-                write_msg(user_id, "Укажите комнату игры (пример: комната-01)")
+                rooms = get_rooms()
+                rooms = ', '.join(rooms)
+                write_msg(user_id,"Подключитесь к существующей комнате  или создайтк новую (пример: комната-01).\nСписок комнат: " + rooms + '.')
         elif get_user_state(user_id)[0] == "registration_room":
             vhod = 0
             for elem in get_rooms():
@@ -825,13 +842,18 @@ def vk_bot_anon_chat(cur_event):
     elif get_user_friend(user_id) is None or get_user_friend(user_id) == '':
 
         if message.lower() == "поиск":
-            write_msg(user_id, 'Ожидайте, ищем собеседника')
+            write_msg(user_id, 'Ожидайте, ищем собеседника.\nДля отмены поиска напишите: отмена.')
             set_user_wait(user_id, 1)
             poisk(user_id)
 
         else:
             if get_user_wait(user_id) == 1:
-                write_msg(user_id, "Идет поиск собеседника, ожидайте")
+                if message.lower() == "отмена":
+                    set_user_wait(user_id, 0)
+                    write_msg(user_id,
+                              "Вы отменили поиск, для выхода из анонимного чата напишите: выход анонимный чат.")
+                else:
+                    write_msg(user_id, "Идет поиск собеседника, ожидайте")
             else:
                 write_msg(user_id, 'Для поиска собеседника напишите: поиск.')
 

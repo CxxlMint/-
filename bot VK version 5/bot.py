@@ -62,6 +62,47 @@ def register_new_user(user_id):
     conn.commit()
 
 
+def set_funny(shytka):
+    cmd = "INSERT INTO funny(shytka) VALUES ('%s')" % shytka
+    c.execute(cmd)
+    conn.commit()
+
+
+def get_funny():
+    a = []
+    cmd = "SELECT shytka FROM funny"
+    c.execute(cmd)
+    result = c.fetchall()
+    for i in range(len(result)):
+        a.append(str(result[i][0]))
+    print(a)
+    return a[random.randint(0, len(a) - 1)]
+
+
+"""def set_like(funny, like):
+    cmd = "UPDATE funny SET like = %d WHERE funny = '%s'" % (int(like), str(funny))
+    c.execute(cmd)
+    conn.commit()
+
+
+def get_like(funny):
+    cmd = "SELECT like FROM funny WHERE funny='%s'" % funny
+    c.execute(cmd)
+    return c.fetchone()[0]
+
+
+def set_dislike(funny, like):
+    cmd = "UPDATE funny SET dislike = %d WHERE funny = '%s'" % (int(like), str(funny))
+    c.execute(cmd)
+    conn.commit()
+
+
+def get_dislike(funny):
+    cmd = "SELECT dislike FROM funny WHERE funny='%s'" % funny
+    c.execute(cmd)
+    return c.fetchone()[0]"""
+
+
 # _______________________________________переводчик____________________________________________________________________
 
 
@@ -581,6 +622,17 @@ def vk_bot_osnova(cur_event):
     if message.lower() == "игра приключение":
         set_user_in_game(user_id, "1")
         write_msg(user_id, bot.new_message(message))
+
+    elif message.lower()[:16] == 'написать шутку: ':
+        funny = message.split(' ')
+        del funny[0]
+        del funny[0]
+        funny = ' '.join(funny)
+        set_funny(funny)
+        write_msg(user_id, "Вы написали шутку, теперь её увидят все. Ваша шутка: " + funny)
+
+    elif message.lower() == 'шутка':
+        write_msg(user_id, get_funny())
 
     elif message.lower()[:15] == 'почтовый индекс':
         adres = message.split(' ')

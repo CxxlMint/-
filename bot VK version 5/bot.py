@@ -582,6 +582,25 @@ def vk_bot_osnova(cur_event):
         set_user_in_game(user_id, "1")
         write_msg(user_id, bot.new_message(message))
 
+    elif message.lower()[:15] == 'почтовый индекс':
+        adres = message.split(' ')
+        del adres[0]
+        del adres[0]
+        adres = ' '.join(adres)
+
+        geocoder_request = "http://geocode-maps.yandex.ru/1.x/?apikey=40d1649f-0493-4b70-98ba-98533de7710b&geocode=" + adres + "&format=json"
+        response = requests.get(geocoder_request)
+        if response:
+            json_response = response.json()
+            toponym = json_response["response"]["GeoObjectCollection"]["featureMember"][0]["GeoObject"]
+            toponym_address = toponym["metaDataProperty"]["GeocoderMetaData"]["Address"]["postal_code"]
+            write_msg(user_id, "Почтовый индекс: " + toponym_address)
+        else:
+            print("Ошибка выполнения запроса:")
+            print(geocoder_request)
+            print("Http статус:", response.status_code, "(", response.reason, ")")
+            write_msg(user_id, "У этого адресса нет почтового индекса")
+
     elif message.lower() == "перевод" or message.lower() == "переводчик" or message.lower() == "переведи":
         set_in_translator(user_id, 1)
         write_msg(user_id,
@@ -934,7 +953,8 @@ def vk_bot_translator(cur_event):
             set_change_language(user_id, 0)
             write_msg(user_id, "Теперь напишите мне что-то, а я вам это переведу.")
         else:
-            write_msg(user_id, "Вы неправильно указали язык.\nВыберите язык:\n1: Русский-Английский\n2: Английский-Русский")
+            write_msg(user_id,
+                      "Вы неправильно указали язык.\nВыберите язык:\n1: Русский-Английский\n2: Английский-Русский")
     elif message.lower() == 'выход':
         set_in_translator(user_id, 0)
         set_change_language(user_id, 0)

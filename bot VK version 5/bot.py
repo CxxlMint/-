@@ -9,6 +9,7 @@ import random
 import config
 import string
 import requests
+import json
 
 # подклчение к базе данных
 conn = sqlite3.connect(config.sql_baza)
@@ -16,6 +17,7 @@ c = conn.cursor()
 
 # Авторизация
 vk = vk_api.VkApi(token=config.token)
+vk_vk = vk.get_api()
 
 # Работа с сообщениями
 longpoll = VkLongPoll(vk)
@@ -609,7 +611,7 @@ def users_end_game(room):
 
 # написание сообщения
 def write_msg(user_id, message):
-    vk.method('messages.send', {'user_id': user_id, 'message': message, 'random_id': random.randint(0, 2048)})
+    vk.method('messages.send', {'user_id': user_id, 'message': message, 'random_id': random.randint(0, 2048), "keyboard": keyboard})
 
 
 # обработка сообщений
@@ -800,14 +802,14 @@ def vk_bot_adventure(cur_event):
         write_msg(user_id, "Возвращайтесь скорее! Вас ждут приключения!")
 
     elif message.lower() == "начать приключение":
-        if int(get_user_progress(user_id)[0]) == 0:
+        if int(get_user_progress(user_id)) == 0:
             write_msg(user_id, "выберите рассу из предложенного списка: Человек, Эльф, Орк")
             set_user_progress(user_id, "1")
         else:
             write_msg(user_id,
                       "Вы уже странствуете по свету Неверленда, если хотите начать сначла, напишите: сначала игра приключение")
 
-    elif int(get_user_progress(user_id)[0]) == 1:
+    elif int(get_user_progress(user_id)) == 1:
         if message.lower() == "человек":
             set_user_race(user_id, "человек")
             set_user_skill_1(user_id, "2")
@@ -841,7 +843,7 @@ def vk_bot_adventure(cur_event):
         else:
             write_msg(user_id, "Я не понял ваши слова, выберите рассу из предложенного списка: Человек, Эльф, Орк")
 
-    elif int(get_user_progress(user_id)[0]) == 2:
+    elif int(get_user_progress(user_id)) == 2:
         if message.lower() == "готов" or message.lower() == "готова":
             write_msg(user_id, "отлично, ваша расса теперь " + str(get_user_race(
                 user_id)) + ". Если вы захотите начать приключение сначала напишите: сначала игра приключение")
@@ -857,7 +859,7 @@ def vk_bot_adventure(cur_event):
                       "ваши действия:\n 1) промолчать.\n 2) напасть [нужна сила или сила магии 3].\n 3) ответить грубо.\n 4) ответить нейтрально")
             set_user_progress(user_id, "3")
 
-    elif int(get_user_progress(user_id)[0]) == 3:
+    elif int(get_user_progress(user_id)) == 3:
         a = 0
         if message.lower() == '1' or message.lower() == '1)' or message.lower() == 'промолчать':
             if str(get_user_race(user_id)).lower() == "человек":
@@ -919,7 +921,7 @@ def vk_bot_adventure(cur_event):
             write_msg(user_id, "Внимание, напишите своё имя, потом его нельзя будет изменить.")
             set_user_progress(user_id, "4")
 
-    elif int(get_user_progress(user_id)[0]) == 4:
+    elif int(get_user_progress(user_id)) == 4:
         set_user_name(user_id, message)
         write_msg(user_id,
                   "Заключенный_1: 'Ну привет, " + get_user_name(user_id) + ". Меня Астра звать, родом я из Империи.'")
@@ -944,7 +946,7 @@ def vk_bot_adventure(cur_event):
                            " произнести любое заклинание [нужна сила магии 3]\n 3) напасть на стражника [нужна сила 3] 4) бездействоввать")
         set_user_progress(user_id, "5")
 
-    elif int(get_user_progress(user_id)[0]) == 4:
+    elif int(get_user_progress(user_id)) == 4:
         a = 0
         if message.lower() == "1" or message.lower() == "1)" or message.lower() == "заговорить" or message.lower() == "заговорить стражников":
             write_msg(user_id,
@@ -1029,10 +1031,29 @@ def vk_bot_translator(cur_event):
         write_msg(user_id, str(r["text"])[2:len(str(r["text"])) - 2])
 
 
+def get_button(label, color, payload=""):
+    return {
+        "action": {
+            "type": "text",
+            "payload": json.dumps(payload),
+            "label": label
+        },
+        "color": color
+    }
+
+
+keyboard = {"one_time": False,
+            "buttons": [[get_button(label="помощь", color="negative")]]
+            }
+
+keyboard = json.dumps(keyboard, ensure_ascii=False).encode('utf-8')
+keyboard = str(keyboard.decode('utf-8'))
+
 print("Сервер запущен")
+
 for event in longpoll.listen():
+
     if event.type == VkEventType.MESSAGE_NEW and event.to_me:
-        print(f'Новое сообщение от {event.user_id}', end='')
 
         if get_user(event.user_id) is None:
             register_new_user(event.user_id)
